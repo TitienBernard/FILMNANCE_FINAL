@@ -1,0 +1,687 @@
+/* ---- RESET DE BASE ---- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+  background-color: #0d0d0d;
+  color: #f5f5f5;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+}
+
+/* ---- VARIABLES ---- */
+:root {
+  --bandeau-height: 70px;
+  --couleur-principale: #f25b21;
+  --couleur-secondaire: #ff6b31;
+  --couleur-claire: #ff7b41;
+}
+
+/* ---- BANDEAU ACCUEIL (index.html) ---- */
+.bandeau-accueil {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 100px 15px 40px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  height: var(--bandeau-height);
+}
+
+.bandeau-accueil .logo {
+  font-family: "Codystar", cursive;
+  font-size: 28px;
+  color: white;
+  text-decoration: none;
+  letter-spacing: 2px;
+  transition:
+    color 0.3s ease,
+    text-shadow 0.3s ease;
+}
+
+.bandeau-accueil .logo:hover {
+  color: var(--couleur-principale);
+  text-shadow: 0 0 6px rgba(242, 91, 33, 0.5);
+}
+
+.nav-right {
+  display: flex;
+  gap: 40px;
+  align-items: center;
+}
+
+.nav-item {
+  color: white;
+  font-size: 16px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition:
+    color 0.3s ease,
+    transform 0.2s ease,
+    text-shadow 0.3s ease;
+  font-family: "Codystar", cursive;
+}
+
+.nav-item i {
+  font-size: 18px;
+  transition:
+    color 0.3s ease,
+    transform 0.2s ease;
+}
+
+.nav-item:hover {
+  color: var(--couleur-principale);
+  text-shadow: 0 0 4px rgba(242, 91, 33, 0.5);
+  transform: translateY(-2px);
+}
+
+.nav-item:hover i {
+  color: var(--couleur-principale);
+  transform: scale(1.15);
+}
+
+/* ---- BANDEAU PAGES ANNEXES ---- */
+/* Bandeau pour pages annexes */
+.bandeau {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 70px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 40px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bandeau .logo {
+  font-family: "Codystar", cursive;
+  font-size: 28px;
+  color: white;
+  text-decoration: none;
+  letter-spacing: 2px;
+  transition:
+    color 0.3s ease,
+    text-shadow 0.3s ease;
+}
+
+.bandeau .logo:hover {
+  color: var(--couleur-principale);
+  text-shadow: 0 0 6px rgba(242, 91, 33, 0.5);
+}
+
+/* Burger */
+.bandeau .burger {
+  font-size: 2.5rem; /* réduit pour bandeau */
+  height: 70px; /* même hauteur que le bandeau */
+  cursor: pointer;
+  color: #f5f5f5;
+  transition: color 0.3s ease;
+}
+
+.bandeau .burger:hover {
+  color: var(--couleur-principale);
+}
+
+/* Menu identique au bandeau accueil */
+.bandeau .menu {
+  display: flex;
+  gap: 40px;
+  align-items: center;
+  position: absolute;
+  padding: 15px 100px 15px 40px;
+  top: 0;
+  right: 40px;
+  height: 70px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.bandeau .menu.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bandeau .nav-item {
+  color: white;
+  font-size: 16px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Codystar", cursive;
+  transition:
+    color 0.3s ease,
+    transform 0.2s ease,
+    text-shadow 0.3s ease;
+}
+
+.bandeau .nav-item i {
+  font-size: 18px;
+}
+
+.bandeau .nav-item:hover {
+  color: var(--couleur-principale);
+  text-shadow: 0 0 4px rgba(242, 91, 33, 0.5);
+  transform: translateY(-2px);
+}
+
+.bandeau .nav-item:hover i {
+  color: var(--couleur-principale);
+  transform: scale(1.15);
+}
+
+/* ---- HEADER / TITRE ACCUEIL ---- */
+.header {
+  text-align: center;
+  margin-top: var(--bandeau-height);
+}
+
+.header h1 {
+  font-family: "Codystar", cursive;
+  font-size: 6rem;
+  letter-spacing: 2px;
+  color: var(--couleur-principale);
+  text-shadow: 0 0 10px rgba(242, 91, 33, 0.4);
+}
+
+/* ---- SECTION PRÉSENTATION (ACCUEIL) ---- */
+.presentation {
+  text-align: center;
+  margin: 40px auto 80px;
+  max-width: 800px;
+  padding: 20px;
+}
+
+.presentation .intro {
+  font-size: 1.5rem;
+  color: white;
+  margin-bottom: 40px;
+  line-height: 1.5;
+}
+
+.btn-start {
+  display: inline-block;
+  background-color: #1a1a1a;
+  color: var(--couleur-principale);
+  font-weight: bold;
+  font-family: "Codystar", cursive;
+  text-decoration: none;
+  padding: 18px 36px;
+  border-radius: 16px;
+  font-size: 1.3rem;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    background-color 0.3s ease,
+    color 0.3s ease;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  border: none;
+}
+
+.btn-start:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 10px 24px rgba(242, 91, 33, 0.3);
+  background-color: var(--couleur-principale);
+  color: #0d0d0d;
+}
+
+/* ---- FOOTER ---- */
+.footer {
+  position: relative;
+  bottom: 0;
+  width: 100%;
+  background-color: #111;
+  color: #ccc;
+  text-align: center;
+  padding: 15px 0;
+  font-family: "Arial", sans-serif;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Page Database */
+.database-page {
+  margin-top: 120px;
+  text-align: center;
+  color: #fff;
+  padding: 0 40px;
+}
+
+.database-page h1 {
+  font-size: 2.5rem;
+  color: var(--couleur-principale);
+  margin-bottom: 10px;
+}
+
+.database-page .intro {
+  color: #ccc;
+  margin-bottom: 40px;
+}
+
+.search-container {
+  background-color: rgba(0, 0, 0, 0.4);
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 900px;
+  margin: 0 auto 60px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.search-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.input-group {
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: var(--couleur-principale);
+}
+
+.input-group input,
+.input-group select {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: none;
+  background-color: #222;
+  color: white;
+  outline: none;
+}
+
+.btn-search {
+  background-color: var(--couleur-principale);
+  color: #fff;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 30px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-search:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(242, 91, 33, 0.3);
+}
+
+.results-container {
+  margin-top: 40px;
+  color: #aaa;
+}
+
+/* Présentation */
+.presentation-page {
+  margin-top: 120px;
+  padding: 0 60px 60px;
+  color: #fff;
+  line-height: 1.6;
+}
+
+.presentation-page h1 {
+  text-align: center;
+  font-size: 2.8rem;
+  color: var(--couleur-principale);
+  margin-bottom: 20px;
+}
+
+.presentation-page .accent {
+  color: var(--couleur-claire);
+}
+
+.presentation-page p {
+  max-width: 900px;
+  margin: 10px auto;
+  color: #d0d0d0;
+  font-size: 1.05rem;
+}
+
+.presentation-page h2 {
+  color: var(--couleur-principale);
+  font-size: 1.8rem;
+  margin-top: 60px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.presentation-page section {
+  margin-bottom: 50px;
+}
+
+/* Nom FILMNANCE stylisé */
+.filmnance-title {
+  font-family: "Codystar", cursive;
+  color: var(--couleur-principale);
+  letter-spacing: 2px;
+}
+
+.presentation-page ul {
+  list-style: none;
+  padding: 0;
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.presentation-page li {
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 14px 18px;
+  margin: 10px 0;
+  border-radius: 10px;
+  transition:
+    transform 0.3s ease,
+    background-color 0.3s ease;
+  border-left: 3px solid var(--couleur-principale);
+}
+
+.presentation-page li:hover {
+  transform: translateX(8px);
+  background-color: rgba(242, 91, 33, 0.12);
+}
+
+/*Liens hypertexte*/
+.hyperlink {
+  color: var(--couleur-principale);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.hyperlink:hover {
+  color: var(--couleur-secondaire);
+  text-decoration: underline;
+}
+
+/* ---- PAGE ABOUT ---- */
+.about-page {
+  margin-top: 120px;
+  padding: 0 60px 60px;
+  color: #fff;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.about-page h1 {
+  font-size: 2.8rem;
+  color: var(--couleur-principale);
+  margin-bottom: 20px;
+}
+
+.about-page h2 {
+  color: var(--couleur-principale);
+  font-size: 1.6rem;
+  margin-top: 50px;
+  margin-bottom: 15px;
+}
+
+.about-page p {
+  max-width: 900px;
+  margin: 10px auto;
+  color: #d0d0d0;
+  font-size: 1.05rem;
+}
+
+/* ✅ centre les listes dans la page */
+.about-page ul {
+  list-style: none;
+  padding: 0;
+  display: inline-block;
+  text-align: left;
+  margin: 0 auto;
+}
+
+/* ✅ chaque élément reste lisible mais centré */
+.about-page li {
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 12px 18px;
+  margin: 8px 0;
+  border-radius: 10px;
+  transition:
+    transform 0.3s ease,
+    background-color 0.3s ease;
+  border-left: 3px solid var(--couleur-principale);
+  width: 100%;
+  max-width: 700px;
+}
+
+.about-page li:hover {
+  transform: translateY(-4px);
+  background-color: rgba(242, 91, 33, 0.12);
+}
+
+/* ✅ centre le bouton de téléchargement */
+.btn-download {
+  display: inline-block;
+  background-color: var(--couleur-principale);
+  color: #0d0d0d;
+  font-weight: bold;
+  text-decoration: none;
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-family: "Codystar", cursive;
+  font-size: 1.1rem;
+  transition:
+    background 0.3s,
+    transform 0.2s;
+  margin: 25px auto 0;
+}
+
+.btn-download:hover {
+  background-color: var(--couleur-secondaire);
+  transform: translateY(-4px);
+}
+
+/* FILMNANCE stylisé */
+.filmnance-title {
+  font-family: "Codystar", cursive;
+  color: var(--couleur-principale);
+  letter-spacing: 2px;
+}
+
+.film-card {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 20px 0;
+  background: #fafafa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.film-card h2 {
+  margin-top: 0;
+}
+
+.pdf-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* --- SWITCH NEON GLOW --- */
+.search-tabs {
+  width: 100%;
+  max-width: 600px;
+  margin: 40px auto 30px;
+  display: flex;
+  position: relative;
+  justify-content: space-around;
+  border-bottom: 2px solid rgba(242, 91, 33, 0.2);
+}
+
+.search-tabs .tab {
+  flex: 1;
+  text-align: center;
+  padding: 12px 0;
+  font-family: "Codystar", cursive;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #aaa;
+  transition: color 0.3s ease;
+}
+
+.search-tabs .tab.active {
+  color: var(--couleur-principale);
+}
+
+.tab-slider {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 50%;
+  height: 2px;
+  background: var(--couleur-principale);
+  transition: transform 0.3s ease;
+  box-shadow: 0 0 10px var(--couleur-principale);
+}
+
+.search-container {
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.search-container.visible {
+  display: block;
+  opacity: 1;
+}
+
+/* --- SWITCH TABS (version propre et unifiée) --- */
+
+.tabs {
+  display: flex;
+  position: relative;
+  width: 280px;
+  margin: 0 auto 30px;
+  border-radius: 30px;
+  background: #111;
+  padding: 5px;
+  height: 40px;
+  align-items: center;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  cursor: pointer;
+  color: #aaa;
+  font-family: "Codystar", cursive;
+  z-index: 2;
+  transition: color 0.3s ease;
+  font-size: 1rem;
+  line-height: 40px;
+}
+
+.tab.active {
+  color: var(--couleur-principale);
+}
+
+/* SLIDER ROUGE CUIVRÉ FIN */
+.tab-slider {
+  position: absolute;
+  bottom: 5px;
+  left: 0;
+  width: 50%;
+  height: 4px;
+  background: var(--couleur-principale);
+  border-radius: 2px;
+  box-shadow: 0 0 6px var(--couleur-principale);
+  transition: transform 0.35s ease;
+}
+
+/* --- FORM VISIBILITY --- */
+.search-container {
+  display: none;
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.search-container.visible {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.film-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin: 25px 0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  transition: transform 0.3s ease;
+}
+
+.film-card:hover {
+  transform: translateY(-6px);
+}
+
+.film-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.badge-plan {
+  background: var(--couleur-principale);
+  color: #0d0d0d;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.meta {
+  color: #aaa;
+  font-size: 0.9rem;
+  margin: 6px 0 12px;
+}
+
+.synopsis {
+  color: #ddd;
+  margin-bottom: 15px;
+}
+
+.actions a {
+  display: inline-block;
+  margin-right: 12px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  text-decoration: none;
+  background: var(--couleur-principale);
+  color: #0d0d0d;
+  font-weight: 600;
+}

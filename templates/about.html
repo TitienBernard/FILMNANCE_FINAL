@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FILMNANCE – À propos</title>
+
+    <!-- CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+
+    <!-- Fonts / Icons -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Codystar:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+  </head>
+
+  <body>
+    <!-- Bandeau avec burger -->
+    <nav class="bandeau">
+      <a href="{{ url_for('home') }}" class="logo">FILMNANCE</a>
+
+      <div class="droite">
+        <div class="burger">☰</div>
+        <div class="nav-right menu">
+          <a href="{{ url_for('database') }}" class="nav-item">
+            <i class="fas fa-database"></i>
+            Explorer la Database
+          </a>
+          <a href="{{ url_for('presentation') }}" class="nav-item">
+            <i class="fas fa-film"></i>
+            Présentation
+          </a>
+          <a href="{{ url_for('about') }}" class="nav-item">
+            <i class="fas fa-info-circle"></i>
+            À propos
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="about-page">
+      <section class="intro">
+        <h1><span class="filmnance-title">Qui suis-je ?</span></h1>
+        <p>
+          Je m'appelle <strong>Titien Bernard</strong>, actuellement étudiant en
+          3ᵉ année du Cycle Pluridisciplinaire d’Études Supérieures à
+          l’Université Paris Sciences et Lettres (PSL) et au lycée
+          Louis-le-Grand. Je me spécialise dans les
+          <strong>sciences des données appliquées à la culture</strong>.
+          Passionné par le cinéma, j’explore les liens entre les données, la
+          création et les industries culturelles.
+        </p>
+
+        <a
+          href="{{ url_for('download_cv') }}"
+          class="btn-download"
+          download="Titien Bernard CV.pdf"
+        >
+          Télécharger mon CV
+        </a>
+      </section>
+
+      <section class="education">
+        <h2><i class="fas fa-graduation-cap"></i> Formation</h2>
+        <ul>
+          <li>
+            <strong>Cycle Pluridisciplinaire d’Études Supérieures</strong> – PSL
+            & Lycée Louis-le-Grand <br />
+            Spécialisation : Sciences des données, arts et cultures
+          </li>
+        </ul>
+      </section>
+
+      <section class="skills">
+        <h2><i class="fas fa-tools"></i> Compétences</h2>
+        <ul>
+          <li><strong>Programmation :</strong> Python, SPARQL, Markdown</li>
+          <li>
+            <strong>Analyse & récolte de données :</strong> scraping,
+            modélisation, visualisation
+          </li>
+          <li><strong>Bureautique :</strong> Word, Excel, PowerPoint</li>
+          <li>
+            <strong>Langues :</strong> Français (natif), Anglais (courant),
+            Espagnol (intermédiaire)
+          </li>
+        </ul>
+      </section>
+
+      <section class="projects">
+        <h2><i class="fas fa-chart-line"></i> Projets</h2>
+        <ul>
+          <li>
+            <strong
+              >Are older national anthems more martial than recent ones?</strong
+            >
+            (Mai 2025) Analyse de données sur la violence des hymnes nationaux.
+          </li>
+          <li>
+            <strong
+              >Does the “9h des Halles” really predict the success of a
+              movie?</strong
+            >
+            (Juin 2024) Étude statistique sur la corrélation entre la séance du
+            “9h”.
+          </li>
+        </ul>
+      </section>
+
+      <section class="experience">
+        <h2><i class="fas fa-briefcase"></i> Expériences</h2>
+        <ul>
+          <li>
+            <strong>Stage en analyse de données</strong> – ENSAD (Juin–Juillet
+            2025) Étude sur la revue <em>.able</em> et l’œuvre
+            <em>RÉESPIRATION</em>.
+          </li>
+          <li>
+            <strong>Summer School – Artificial Intelligence</strong> –
+            University College London (Juillet 2024)
+          </li>
+        </ul>
+      </section>
+
+      <section class="interests">
+        <h2><i class="fas fa-heart"></i> Intérêts personnels</h2>
+        <p>
+          Théâtre - <strong>Acteur & metteur en scène</strong> – Association
+          RIDAU Théâtre à Dauphine <br />
+          Gymnastique - Niveau Fédéral A, 2017–2023
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>© 2025 Titien Bernard – All rights reserved</p>
+    </footer>
+
+    <!-- JS -->
+    <script src="{{ url_for('static', filename='animate.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+  </body>
+</html>

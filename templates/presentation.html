@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FILMNANCE – Présentation</title>
+
+    <!-- CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+
+    <!-- Fonts / Icons -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Codystar:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+  </head>
+
+  <body>
+    <!-- Bandeau avec burger -->
+    <nav class="bandeau">
+      <a href="{{ url_for('home') }}" class="logo">FILMNANCE</a>
+
+      <div class="droite">
+        <div class="burger">☰</div>
+        <div class="nav-right menu">
+          <a href="{{ url_for('database') }}" class="nav-item">
+            <i class="fas fa-database"></i>
+            Explorer la Database
+          </a>
+          <a href="{{ url_for('presentation') }}" class="nav-item">
+            <i class="fas fa-film"></i>
+            Présentation
+          </a>
+          <a href="{{ url_for('about') }}" class="nav-item">
+            <i class="fas fa-info-circle"></i>
+            À propos
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="presentation-page">
+      <section class="intro">
+        <h1>
+          Présentation du projet
+          <span class="filmnance-title">FILMNANCE</span>
+        </h1>
+        <p>
+          <strong>FILMNANCE</strong> est un projet de recherche et de data
+          science appliqué au <strong>cinéma français</strong>. L’objectif est
+          de rendre les données économiques du secteur plus accessibles,
+          exploitables et transparentes.
+        </p>
+      </section>
+
+      <section class="motivation">
+        <h2><i class="fas fa-lightbulb"></i> Motivations</h2>
+        <p>
+          Le projet est né des
+          <strong>besoins concrets des producteurs de cinéma</strong>
+          : obtenir des informations fiables sur le financement, la production
+          et les équipes des films récents.
+        </p>
+        <p>
+          Les <strong>données open source</strong> existent mais sont souvent
+          <strong>difficiles à trouver</strong> et
+          <strong>mal organisées</strong>. Des outils complets existent, mais
+          ils sont payants et donc inaccessibles à la plupart des petites
+          productions.
+        </p>
+      </section>
+
+      <section class="construction">
+        <h2>
+          <i class="fas fa-database"></i> Construction de la base de données
+        </h2>
+        <p>
+          La base de données a été construite à partir d’un scraping éclairé du
+          site du
+          <strong>
+            <a
+              class="hyperlink"
+              href="https://rca.cnc.fr/rca.frontoffice/"
+              target="_blank"
+            >
+              RCA (Registre du Cinéma et de l’Audiovisuel)
+            </a> </strong
+          >.
+        </p>
+        <p>
+          Elle a ensuite été enrichie avec les
+          <strong>synopsis, équipes artistiques et budgets</strong> des films
+          grâce à l’API de
+          <strong>
+            <a
+              class="hyperlink"
+              href="https://www.themoviedb.org/"
+              target="_blank"
+            >
+              TMDB (The Movie Database)
+            </a> </strong
+          >.
+        </p>
+      </section>
+
+      <section class="futures">
+        <h2><i class="fas fa-rocket"></i> Améliorations futures</h2>
+        <ul>
+          <li>
+            <strong>Mettre en place un LLM</strong> capable de proposer des
+            films similaires à partir du synopsis d’un projet.
+          </li>
+          <li>
+            <strong>Étendre la base de données</strong> à d’autres pays
+            européens.
+          </li>
+          <li>
+            <strong>Automatiser la mise à jour</strong> de la base tous les 3
+            mois.
+          </li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>© 2025 Titien Bernard – All rights reserved</p>
+    </footer>
+
+    <!-- JS -->
+    <script src="{{ url_for('static', filename='animate.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+  </body>
+</html>

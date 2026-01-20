@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FILMNANCE – Database</title>
+
+    <!-- CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+
+    <!-- Fonts / Icons -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Codystar:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+  </head>
+
+  <body>
+    <!-- Bandeau -->
+    <nav class="bandeau">
+      <a href="{{ url_for('home') }}" class="logo">FILMNANCE</a>
+      <div class="droite">
+        <div class="burger">☰</div>
+        <div class="nav-right menu">
+          <a href="{{ url_for('database') }}" class="nav-item"
+            ><i class="fas fa-database"></i> Explorer</a
+          >
+          <a href="{{ url_for('presentation') }}" class="nav-item"
+            ><i class="fas fa-film"></i> Présentation</a
+          >
+          <a href="{{ url_for('about') }}" class="nav-item"
+            ><i class="fas fa-info-circle"></i> À propos</a
+          >
+        </div>
+      </div>
+    </nav>
+
+    <main class="database-page">
+      <h1>Explorer la base de données FILMNANCE</h1>
+
+      <div class="search-container visible">
+        <form id="search-form">
+          <div class="search-grid">
+            <div class="input-group">
+              <label for="title">Nom du film</label>
+              <input type="text" id="title" placeholder="Azur et Asmar" />
+            </div>
+
+            <div class="input-group">
+              <label for="year">Année</label>
+              <input type="number" id="year" placeholder="2020" />
+            </div>
+
+            <div class="input-group">
+              <label for="type">Type de métrage</label>
+              <select id="type">
+                <option value="">Tous</option>
+                <option value="Long métrage">Long métrage</option>
+                <option value="Court métrage">Court métrage</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="budget">Budget minimum</label>
+              <input type="number" id="budget" placeholder="1000000" />
+            </div>
+
+            <!-- NOUVEAU FILTRE : Production -->
+            <div class="input-group">
+              <label for="production">Production</label>
+              <select id="production">
+                <option value="">Toutes</option>
+                <option value="Française">Française</option>
+                <option value="Etrangère">Étrangère</option>
+                <option value="Franco-étrangère">Franco-étrangère</option>
+              </select>
+            </div>
+
+            <!-- NOUVEAU FILTRE : Genre -->
+            <div class="input-group">
+              <label for="genre">Genre</label>
+              <select id="genre">
+                <option value="">Tous</option>
+                <option value="Fiction">Fiction</option>
+                <option value="Animation">Animation</option>
+                <option value="Documentaire">Documentaire</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="intervenant">Intervenant</label>
+              <input type="text" id="intervenant" placeholder="Michel Ocelot" />
+            </div>
+
+            <div class="input-group">
+              <label for="role">Rôle de l'intervenant</label>
+              <select id="role">
+                <option value="">Tous</option>
+                <option value="realisateur(s)">Réalisateur</option>
+                <option value="producteur(s)">Producteur</option>
+                <option value="acteur(s)">Acteur</option>
+                <option value="diffuseur(s)">Diffuseur</option>
+                <option value="scenariste(s)">Scénariste</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="keywords">Mots-clés (synopsis)</label>
+              <input
+                type="text"
+                id="keywords"
+                placeholder="amour, guerre, enfance"
+              />
+            </div>
+          </div>
+
+          <button type="submit" class="btn-search">
+            <i class="fas fa-search"></i> Rechercher
+          </button>
+        </form>
+      </div>
+
+      <!-- ---- RESULTS ---- -->
+      <div class="results-container"></div>
+    </main>
+
+    <footer class="footer">
+      <p>© 2025 Titien Bernard – All rights reserved</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+  </body>
+</html>

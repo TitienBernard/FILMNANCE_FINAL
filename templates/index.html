@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FILMNANCE</title>
+
+    <!-- CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+
+    <!-- JS -->
+    <script src="{{ url_for('static', filename='animate.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+
+    <!-- Fonts & Icons -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Codystar:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+  </head>
+
+  <body>
+    <nav class="bandeau-accueil">
+      <a href="{{ url_for('home') }}" class="logo">FILMNANCE</a>
+
+      <div class="nav-right">
+        <a href="{{ url_for('database') }}" class="nav-item">
+          <i class="fas fa-database"></i>
+          Explorer la Database
+        </a>
+        <a href="{{ url_for('presentation') }}" class="nav-item">
+          <i class="fas fa-film"></i>
+          Présentation
+        </a>
+        <a href="{{ url_for('about') }}" class="nav-item">
+          <i class="fas fa-info-circle"></i>
+          À propos
+        </a>
+      </div>
+    </nav>
+
+    <header class="header">
+      <h1>FILMNANCE</h1>
+    </header>
+
+    <main>
+      <section class="presentation">
+        <p class="intro">
+          FILMNANCE est un outil gratuit et open-source de renseignement sur des
+          films produits ou coproduits en France.
+        </p>
+        <p class="intro">
+          Cherchez des films similaires au vôtre afin de vous aider dans votre
+          élaboration de plan de financement.
+        </p>
+        <a href="{{ url_for('database') }}" class="btn-start"
+          >Démarrer avec FILMNANCE</a
+        >
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>© 2025 Titien Bernard – All rights reserved</p>
+    </footer>
+  </body>
+</html>
