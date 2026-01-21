@@ -685,3 +685,41 @@ main {
   color: #0d0d0d;
   font-weight: 600;
 }
+
+/* --- INFO BAR --- */
+.info-bar {
+  max-width: 900px;
+  margin: 0 auto 40px;
+  padding: 15px 25px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border-left: 4px solid var(--couleur-principale);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  color: #ddd;
+  font-size: 1rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.info-bar i {
+  color: var(--couleur-principale);
+  font-size: 1.3rem;
+  text-shadow: 0 0 5px rgba(242, 91, 33, 0.4);
+}
+
+/* --- BOUTONS PDF (HOVER) --- */
+.actions a {
+  transition: all 0.3s ease;
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.actions a:hover {
+  background-color: var(--couleur-secondaire);
+  color: #000;
+  transform: translateY(-4px);
+  box-shadow: 0 0 15px rgba(242, 91, 33, 0.6);
+  cursor: pointer;
+}
