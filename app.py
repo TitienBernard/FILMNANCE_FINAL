@@ -240,5 +240,21 @@ def get_pdf():
     except Exception as e:
         return f"Erreur : {e}", 500
 
+# --- ROUTE ESPION POUR VOIR LES NOMS EXACTS ---
+@app.route("/debug_columns")
+def debug_columns():
+    if not DATABASE_URL: return jsonify(["Erreur: Pas de DB"])
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # On demande à PostgreSQL la liste officielle des colonnes
+        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'films'")
+        rows = cur.fetchall()
+        conn.close()
+        # On renvoie la liste
+        return jsonify([r[0] for r in rows])
+    except Exception as e:
+        return jsonify([str(e)])
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
