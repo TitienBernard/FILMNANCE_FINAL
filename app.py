@@ -50,7 +50,7 @@ def download_cv():
     except: return "CV introuvable", 404
 
 # =============================
-# RECHERCHE CORRIGÉE
+# RECHERCHE (CORRECTION "DISTINCT" vs "ORDER BY")
 # =============================
 @app.route("/search", methods=["GET"])
 def search():
@@ -71,8 +71,8 @@ def search():
         budget_min = request.args.get("budget", "").strip()
         role_filter = request.args.get("role", "").strip()
 
-        # Requête
-        query = "SELECT DISTINCT * FROM films WHERE 1=1"
+        # --- CORRECTION ICI : On enlève le "DISTINCT" pour éviter le crash SQL ---
+        query = "SELECT * FROM films WHERE 1=1"
         params = []
 
         # A. TITRE
@@ -80,7 +80,7 @@ def search():
             query += " AND (titre ILIKE %s OR similarity(titre, %s) > 0.3)"
             params.extend([f"%{title}%", title])
         
-        # B. ANNÉE (Correction: souvent 'dateimmatriculation' tout attaché)
+        # B. ANNÉE
         if year:
             query += " AND (dateimmatriculation ILIKE %s OR date_immatriculation ILIKE %s)"
             params.extend([f"%{year}%", f"%{year}%"])
@@ -91,12 +91,12 @@ def search():
             val = f"%{production}%"
             params.extend([val, val, val])
 
-        # D. SYNOPSIS (Correction: 'synopsis' ou 'synopsis_tmdb')
+        # D. SYNOPSIS
         if keywords:
             query += " AND (synopsis_tmdb ILIKE %s OR synopsis ILIKE %s)" 
             params.extend([f"%{keywords}%", f"%{keywords}%"])
 
-        # E. TYPE (Correction: 'typemetrage' tout attaché)
+        # E. TYPE
         if type_metrage:
             query += " AND (typemetrage ILIKE %s OR type_de_metrage ILIKE %s)"
             params.extend([f"%{type_metrage}%", f"%{type_metrage}%"])
@@ -123,7 +123,6 @@ def search():
                 elif "diffus" in r: target_col = "diffuseurs"
 
             if target_col:
-                 # On tente le nom au pluriel et au singulier pour être sûr
                  query += f" AND ({target_col} ILIKE %s OR {target_col[:-1]} ILIKE %s)"
                  params.extend([f"%{intervenant}%", f"%{intervenant}%"])
             else:
@@ -136,7 +135,7 @@ def search():
             query += " ORDER BY similarity(titre, %s) DESC"
             params.append(title)
         else:
-            query += " ORDER BY dateimmatriculation DESC" # Correction nom colonne
+            query += " ORDER BY dateimmatriculation DESC"
 
         query += " LIMIT 100"
 
@@ -145,10 +144,22 @@ def search():
         cur.close()
         conn.close()
 
+        # --- DÉDUPLICATION EN PYTHON (C'est ici qu'on remplace le DISTINCT) ---
+        seen_titles = set()
         results = []
+        
         for row in rows:
             film = dict(row)
-            # Récupération PDF souple
+            
+            # On crée une clé unique (Titre + Année) pour repérer les doublons
+            unique_key = (film.get('titre', '').lower(), film.get('dateimmatriculation', ''))
+            
+            if unique_key in seen_titles:
+                continue # On ignore ce film car on l'a déjà vu
+            
+            seen_titles.add(unique_key)
+
+            # Récupération PDF
             p_path = film.get('path_plan_financement_simple') or film.get('plan_financement') or film.get('plan')
             d_path = film.get('path_devis_simple') or film.get('devis')
             film["plan_financement"] = normalize_pdf_path(p_path)
@@ -158,7 +169,6 @@ def search():
         return jsonify(results)
 
     except Exception as e:
-        # AFFICHE L'ERREUR DANS LE NAVIGATEUR POUR QU'ON PUISSE LA VOIR
         print(f"❌ ERREUR SQL : {e}")
         return jsonify({"error": str(e)})
 
