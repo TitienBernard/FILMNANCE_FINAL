@@ -71,6 +71,7 @@ def download_cv():
 # RECHERCHE
 # =============================
 @app.route("/search", methods=["GET"])
+@app.route("/search", methods=["GET"])
 def search():
     if not DATABASE_URL:
         return jsonify([])
@@ -79,33 +80,88 @@ def search():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
+        # 1. Récupération des paramètres
         title = request.args.get("title", "").strip()
         year = request.args.get("year", "").strip()
         intervenant = request.args.get("intervenant", "").strip()
         production = request.args.get("production", "").strip()
+        keywords = request.args.get("keywords", "").strip()
         
+        # Nouveaux paramètres
+        type_metrage = request.args.get("type", "").strip()
+        genre = request.args.get("genre", "").strip()
+        budget_min = request.args.get("budget", "").strip()
+        role_filter = request.args.get("role", "").strip() # Ex: "realisateur(s)"
+
         query = "SELECT * FROM films WHERE 1=1"
         params = []
 
-        # 1. FILTRE TITRE INTELLIGENT
+        # --- FILTRES ---
+        
+        # Titre
         if title:
             query += " AND (titre ILIKE %s OR similarity(titre, %s) > 0.3)"
             params.append(f"%{title}%") 
             params.append(title) 
         
+        # Année
         if year:
             query += " AND dateimmatriculation ILIKE %s"
             params.append(f"%{year}%")
             
+        # Production
         if production:
             query += " AND (production ILIKE %s OR nationalité ILIKE %s)"
             val = f"%{production}%"
             params.extend([val, val])
 
+        # Keywords (Synopsis)
+        if keywords:
+            # Vérifie si ta colonne s'appelle 'synopsis' ou 'synopsis_tmdb'
+            query += " AND synopsis ILIKE %s" 
+            params.append(f"%{keywords}%")
+
+        # 1. Type de métrage (Long / Court)
+        if type_metrage:
+            # On suppose que la colonne s'appelle 'typemetrage' ou 'type' dans la BDD
+            query += " AND typemetrage ILIKE %s"
+            params.append(f"%{type_metrage}%")
+
+        # 2. Genre
+        if genre:
+            query += " AND genre ILIKE %s"
+            params.append(f"%{genre}%")
+
+        # 3. Budget (Complexe : Conversion Texte -> Nombre)
+        if budget_min:
+            # On nettoie la colonne budget (enlève tout ce qui n'est pas chiffre) et on compare
+            # Attention : cela suppose que ta colonne s'appelle 'budget' ou 'devis'
+            query += " AND CAST(REGEXP_REPLACE(budget, '[^0-9]', '', 'g') AS BIGINT) >= %s"
+            params.append(budget_min)
+
+        # 4. Intervenant AVEC ou SANS Rôle spécifié
         if intervenant:
-            query += " AND (realisateurs ILIKE %s OR producteurs ILIKE %s OR scenaristes ILIKE %s)"
-            val = f"%{intervenant}%"
-            params.extend([val, val, val])
+            if role_filter:
+                # Si un rôle est choisi, on cible la colonne précise
+                # Nettoyage du nom du rôle pour correspondre aux colonnes SQL (minuscule, sans parenthèses)
+                # Ex: "realisateur(s)" devient "realisateurs"
+                col_name = role_filter.replace("(", "").replace(")", "").lower()
+                
+                # Sécurité pour éviter l'injection SQL sur le nom de colonne
+                valid_cols = ["realisateurs", "producteurs", "acteurs", "diffuseurs", "scenaristes"]
+                if col_name in valid_cols:
+                    query += f" AND {col_name} ILIKE %s"
+                    params.append(f"%{intervenant}%")
+                else:
+                    # Fallback si le rôle n'est pas reconnu : on cherche partout
+                    query += " AND (realisateurs ILIKE %s OR producteurs ILIKE %s OR scenaristes ILIKE %s)"
+                    val = f"%{intervenant}%"
+                    params.extend([val, val, val])
+            else:
+                # Pas de rôle choisi : on cherche partout (comme avant)
+                query += " AND (realisateurs ILIKE %s OR producteurs ILIKE %s OR scenaristes ILIKE %s)"
+                val = f"%{intervenant}%"
+                params.extend([val, val, val])
 
         # 2. TRI PAR PERTINENCE
         if title:
