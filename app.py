@@ -68,9 +68,8 @@ def download_cv():
     except: return "CV introuvable", 404
 
 # =============================
-# RECHERCHE
+# RECHERCHE (FILTRES COMPLETS SQL)
 # =============================
-@app.route("/search", methods=["GET"])
 @app.route("/search", methods=["GET"])
 def search():
     if not DATABASE_URL:
@@ -87,109 +86,118 @@ def search():
         production = request.args.get("production", "").strip()
         keywords = request.args.get("keywords", "").strip()
         
-        # Nouveaux paramètres
+        # Nouveaux paramètres (Filtres avancés)
         type_metrage = request.args.get("type", "").strip()
         genre = request.args.get("genre", "").strip()
         budget_min = request.args.get("budget", "").strip()
         role_filter = request.args.get("role", "").strip() # Ex: "realisateur(s)"
 
+        # 2. Construction de la requête SQL Dynamique
         query = "SELECT * FROM films WHERE 1=1"
         params = []
 
-        # --- FILTRES ---
-        
-        # Titre
+        # --- A. FILTRE TITRE (Recherche floue + Exacte) ---
         if title:
+            # On cherche si le titre contient le texte OU si la ressemblance est > 30%
             query += " AND (titre ILIKE %s OR similarity(titre, %s) > 0.3)"
             params.append(f"%{title}%") 
             params.append(title) 
         
-        # Année
+        # --- B. FILTRE ANNÉE ---
         if year:
             query += " AND dateimmatriculation ILIKE %s"
             params.append(f"%{year}%")
             
-        # Production
+        # --- C. FILTRE PRODUCTION ---
         if production:
-            query += " AND (production ILIKE %s OR nationalité ILIKE %s)"
+            # On cherche large : production, nationalité, origine...
+            query += " AND (production ILIKE %s OR nationalité ILIKE %s OR origine ILIKE %s)"
             val = f"%{production}%"
-            params.extend([val, val])
+            params.extend([val, val, val])
 
-        # Keywords (Synopsis)
+        # --- D. FILTRE KEYWORDS (Synopsis) ---
         if keywords:
-            # Vérifie si ta colonne s'appelle 'synopsis' ou 'synopsis_tmdb'
-            query += " AND synopsis ILIKE %s" 
+            # On cherche dans la colonne synopsis_tmdb (ou synopsis)
+            # COALESCE permet d'éviter les erreurs si le champ est vide
+            query += " AND (synopsis_tmdb ILIKE %s)" 
             params.append(f"%{keywords}%")
 
-        # 1. Type de métrage (Long / Court)
+        # --- E. FILTRE TYPE DE MÉTRAGE ---
         if type_metrage:
-            # On suppose que la colonne s'appelle 'typemetrage' ou 'type' dans la BDD
+            # On cherche "long" dans "Long métrage"
             query += " AND typemetrage ILIKE %s"
             params.append(f"%{type_metrage}%")
 
-        # 2. Genre
+        # --- F. FILTRE GENRE ---
         if genre:
             query += " AND genre ILIKE %s"
             params.append(f"%{genre}%")
 
-        # 3. Budget (Complexe : Conversion Texte -> Nombre)
+        # --- G. FILTRE BUDGET (Conversion SQL complexe) ---
         if budget_min:
-            # On nettoie la colonne budget (enlève tout ce qui n'est pas chiffre) et on compare
-            # Attention : cela suppose que ta colonne s'appelle 'budget' ou 'devis'
+            # SQL PUISSANT : On enlève tout ce qui n'est pas un chiffre ([^0-9]) et on convertit en nombre (BIGINT)
+            # Cela transforme "1 500 000 €" en 1500000 pour pouvoir faire le >=
             query += " AND CAST(REGEXP_REPLACE(budget, '[^0-9]', '', 'g') AS BIGINT) >= %s"
             params.append(budget_min)
 
-        # 4. Intervenant AVEC ou SANS Rôle spécifié
+        # --- H. FILTRE INTERVENANT AVEC RÔLE ---
         if intervenant:
             if role_filter:
-                # Si un rôle est choisi, on cible la colonne précise
-                # Nettoyage du nom du rôle pour correspondre aux colonnes SQL (minuscule, sans parenthèses)
-                # Ex: "realisateur(s)" devient "realisateurs"
-                col_name = role_filter.replace("(", "").replace(")", "").lower()
+                # 1. Nettoyage du nom du rôle pour correspondre à tes colonnes SQL
+                # Ex: "realisateur(s)" -> "realisateurs"
+                col_name = role_filter.lower().replace("(", "").replace(")", "").replace("-", "")
                 
-                # Sécurité pour éviter l'injection SQL sur le nom de colonne
-                valid_cols = ["realisateurs", "producteurs", "acteurs", "diffuseurs", "scenaristes"]
-                if col_name in valid_cols:
-                    query += f" AND {col_name} ILIKE %s"
+                # Petite correction manuelle pour être sûr des noms de colonnes
+                if "realisat" in col_name: col_target = "realisateurs"
+                elif "product" in col_name: col_target = "producteurs"
+                elif "scenar" in col_name: col_target = "scenaristes"
+                elif "acteu" in col_name: col_target = "acteurs"
+                elif "diffus" in col_name: col_target = "diffuseurs"
+                else: col_target = None
+
+                if col_target:
+                    # Recherche ciblée sur une colonne
+                    query += f" AND {col_target} ILIKE %s"
                     params.append(f"%{intervenant}%")
                 else:
-                    # Fallback si le rôle n'est pas reconnu : on cherche partout
+                    # Fallback : on cherche partout si le rôle n'est pas reconnu
                     query += " AND (realisateurs ILIKE %s OR producteurs ILIKE %s OR scenaristes ILIKE %s)"
                     val = f"%{intervenant}%"
                     params.extend([val, val, val])
             else:
-                # Pas de rôle choisi : on cherche partout (comme avant)
-                query += " AND (realisateurs ILIKE %s OR producteurs ILIKE %s OR scenaristes ILIKE %s)"
+                # Pas de rôle choisi : on cherche partout
+                query += " AND (realisateurs ILIKE %s OR producteurs ILIKE %s OR scenaristes ILIKE %s OR acteurs ILIKE %s)"
                 val = f"%{intervenant}%"
-                params.extend([val, val, val])
+                params.extend([val, val, val, val])
 
-        # 2. TRI PAR PERTINENCE
+        # --- 3. TRI DES RÉSULTATS ---
         if title:
-            # On trie par "Note de ressemblance" (Le plus ressemblant en premier)
+            # Tri par pertinence (Note de ressemblance)
             query += " ORDER BY similarity(titre, %s) DESC"
             params.append(title)
         else:
+            # Tri par date par défaut
             query += " ORDER BY dateimmatriculation DESC"
 
         query += " LIMIT 100"
 
+        # Exécution
         cur.execute(query, params)
         rows = cur.fetchall()
         cur.close()
         conn.close()
 
-        # Conversion résultats
+        # Conversion résultats et Nettoyage Chemins PDF
         results = []
         for row in rows:
             film = dict(row)
-            plan_path = ""
-            devis_path = ""
-            for key in film.keys():
-                if 'plan' in key and film[key]: plan_path = film[key]
-                if 'devis' in key and film[key]: devis_path = film[key]
-
-            film["plan_financement"] = normalize_pdf_path(plan_path)
-            film["devis"] = normalize_pdf_path(devis_path)
+            
+            # On cherche les chemins dans les colonnes possibles
+            p_path = film.get('path_plan_financement_simple') or film.get('plan_financement') or film.get('plan')
+            d_path = film.get('path_devis_simple') or film.get('devis')
+            
+            film["plan_financement"] = normalize_pdf_path(p_path)
+            film["devis"] = normalize_pdf_path(d_path)
             results.append(film)
 
         return jsonify(results)
@@ -199,7 +207,7 @@ def search():
         return jsonify([])
 
 # =============================
-# ROUTE PDF (TA VERSION REQUESTS)
+# ROUTE PDF (VERSION PROD - REQUESTS)
 # =============================
 @app.route("/get_pdf")
 def get_pdf():
@@ -213,7 +221,7 @@ def get_pdf():
         clean_path = path if path.startswith('/') else '/' + path
         target_url = f"{base}{clean_path}"
 
-    # --- TA CORRECTION API ---
+    # Correction URLs API RCA
     if "/documentActe/" in target_url and "/api/" not in target_url:
         target_url = target_url.replace("/rca.frontoffice", "")
         target_url = target_url.replace("/documentActe/", "/rca.frontoffice/api/documentActe/")
