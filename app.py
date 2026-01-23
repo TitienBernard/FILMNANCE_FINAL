@@ -68,7 +68,7 @@ def download_cv():
     except: return "CV introuvable", 404
 
 # =============================
-# RECHERCHE (FILTRES COMPLETS SQL)
+# RECHERCHE (FILTRES SQL CORRIGÉS)
 # =============================
 @app.route("/search", methods=["GET"])
 def search():
@@ -86,113 +86,125 @@ def search():
         production = request.args.get("production", "").strip()
         keywords = request.args.get("keywords", "").strip()
         
-        # Nouveaux paramètres (Filtres avancés)
         type_metrage = request.args.get("type", "").strip()
         genre = request.args.get("genre", "").strip()
         budget_min = request.args.get("budget", "").strip()
-        role_filter = request.args.get("role", "").strip() # Ex: "realisateur(s)"
+        role_filter = request.args.get("role", "").strip()
 
-        # 2. Construction de la requête SQL Dynamique
-        query = "SELECT * FROM films WHERE 1=1"
+        # 2. Construction de la requête
+        # On utilise "DISTINCT" pour éviter les doublons si le CSV en contient
+        query = "SELECT DISTINCT * FROM films WHERE 1=1"
         params = []
 
-        # --- A. FILTRE TITRE (Recherche floue + Exacte) ---
+        # --- A. TITRE ---
         if title:
-            # On cherche si le titre contient le texte OU si la ressemblance est > 30%
             query += " AND (titre ILIKE %s OR similarity(titre, %s) > 0.3)"
             params.append(f"%{title}%") 
             params.append(title) 
         
-        # --- B. FILTRE ANNÉE ---
+        # --- B. ANNÉE ---
+        # Correction : le nom probable est 'date_immatriculation' ou 'dateimmatriculation'
         if year:
-            query += " AND dateimmatriculation ILIKE %s"
+            # On essaie de matcher l'année n'importe où dans la date (ex: '2020' dans '12/05/2020')
+            query += " AND date_immatriculation ILIKE %s"
             params.append(f"%{year}%")
             
-        # --- C. FILTRE PRODUCTION ---
+        # --- C. PRODUCTION ---
         if production:
-            # On cherche large : production, nationalité, origine...
-            query += " AND (production ILIKE %s OR nationalité ILIKE %s OR origine ILIKE %s)"
+            # Correction : noms de colonnes probables avec underscores
+            query += " AND (production ILIKE %s OR nationalite ILIKE %s OR origine ILIKE %s)"
             val = f"%{production}%"
             params.extend([val, val, val])
 
-        # --- D. FILTRE KEYWORDS (Synopsis) ---
+        # --- D. SYNOPSIS (Keywords) ---
         if keywords:
-            # On cherche dans la colonne synopsis_tmdb (ou synopsis)
-            # COALESCE permet d'éviter les erreurs si le champ est vide
-            query += " AND (synopsis_tmdb ILIKE %s)" 
+            # Correction : nom probable 'synopsis_tmdb' ou 'synopsis'
+            # On teste sur la colonne synopsis_tmdb (si elle existe)
+            query += " AND synopsis_tmdb ILIKE %s" 
             params.append(f"%{keywords}%")
 
-        # --- E. FILTRE TYPE DE MÉTRAGE ---
+        # --- E. TYPE DE MÉTRAGE ---
         if type_metrage:
-            # On cherche "long" dans "Long métrage"
-            query += " AND typemetrage ILIKE %s"
+            # Correction : 'Type de métrage' -> 'type_de_metrage'
+            query += " AND type_de_metrage ILIKE %s"
             params.append(f"%{type_metrage}%")
 
-        # --- F. FILTRE GENRE ---
+        # --- F. GENRE ---
         if genre:
+            # 'genre' reste souvent 'genre'
             query += " AND genre ILIKE %s"
             params.append(f"%{genre}%")
 
-        # --- G. FILTRE BUDGET (Conversion SQL complexe) ---
+        # --- G. BUDGET ---
         if budget_min:
-            # SQL PUISSANT : On enlève tout ce qui n'est pas un chiffre ([^0-9]) et on convertit en nombre (BIGINT)
-            # Cela transforme "1 500 000 €" en 1500000 pour pouvoir faire le >=
-            query += " AND CAST(REGEXP_REPLACE(budget, '[^0-9]', '', 'g') AS BIGINT) >= %s"
+            # Le budget est du texte ("1 500 000 €"). On nettoie pour comparer.
+            # On remplace NULL par '0' pour éviter les crashs
+            query += """ 
+                AND CAST(
+                    COALESCE(
+                        NULLIF(REGEXP_REPLACE(budget, '[^0-9]', '', 'g'), ''), 
+                        '0'
+                    ) AS BIGINT
+                ) >= %s 
+            """
             params.append(budget_min)
 
-        # --- H. FILTRE INTERVENANT AVEC RÔLE ---
+        # --- H. INTERVENANT + ROLE ---
         if intervenant:
             if role_filter:
-                # 1. Nettoyage du nom du rôle pour correspondre à tes colonnes SQL
-                # Ex: "realisateur(s)" -> "realisateurs"
-                col_name = role_filter.lower().replace("(", "").replace(")", "").replace("-", "")
+                # Nettoyage du rôle : "Realisateur(s)" -> "realisateurs"
+                target_col = role_filter.lower().replace("(", "").replace(")", "").replace("-", "")
                 
-                # Petite correction manuelle pour être sûr des noms de colonnes
-                if "realisat" in col_name: col_target = "realisateurs"
-                elif "product" in col_name: col_target = "producteurs"
-                elif "scenar" in col_name: col_target = "scenaristes"
-                elif "acteu" in col_name: col_target = "acteurs"
-                elif "diffus" in col_name: col_target = "diffuseurs"
-                else: col_target = None
-
-                if col_target:
-                    # Recherche ciblée sur une colonne
-                    query += f" AND {col_target} ILIKE %s"
+                # Vérification de sécurité des noms de colonnes
+                # Dans ton CSV, "Realisateur(s)" devient "realisateurs" via import_csv.py
+                possible_cols = {
+                    "realisateurs": "realisateurs",
+                    "producteurs": "producteurs",
+                    "scenaristes": "scenaristes",
+                    "acteurs": "acteurs",
+                    "diffuseurs": "diffuseurs"
+                }
+                
+                # On trouve la bonne colonne
+                found_col = None
+                for key in possible_cols:
+                    if key in target_col:
+                        found_col = possible_cols[key]
+                        break
+                
+                if found_col:
+                    query += f" AND {found_col} ILIKE %s"
                     params.append(f"%{intervenant}%")
                 else:
-                    # Fallback : on cherche partout si le rôle n'est pas reconnu
+                    # Si on ne reconnait pas le rôle, on cherche partout
                     query += " AND (realisateurs ILIKE %s OR producteurs ILIKE %s OR scenaristes ILIKE %s)"
                     val = f"%{intervenant}%"
                     params.extend([val, val, val])
             else:
-                # Pas de rôle choisi : on cherche partout
+                # Pas de rôle : on cherche partout
                 query += " AND (realisateurs ILIKE %s OR producteurs ILIKE %s OR scenaristes ILIKE %s OR acteurs ILIKE %s)"
                 val = f"%{intervenant}%"
                 params.extend([val, val, val, val])
 
-        # --- 3. TRI DES RÉSULTATS ---
+        # --- TRI ---
         if title:
-            # Tri par pertinence (Note de ressemblance)
             query += " ORDER BY similarity(titre, %s) DESC"
             params.append(title)
         else:
-            # Tri par date par défaut
-            query += " ORDER BY dateimmatriculation DESC"
+            # Correction : date_immatriculation
+            query += " ORDER BY date_immatriculation DESC"
 
         query += " LIMIT 100"
 
-        # Exécution
         cur.execute(query, params)
         rows = cur.fetchall()
         cur.close()
         conn.close()
 
-        # Conversion résultats et Nettoyage Chemins PDF
         results = []
         for row in rows:
             film = dict(row)
-            
-            # On cherche les chemins dans les colonnes possibles
+            # Gestion souple des noms de colonnes PDF
             p_path = film.get('path_plan_financement_simple') or film.get('plan_financement') or film.get('plan')
             d_path = film.get('path_devis_simple') or film.get('devis')
             
@@ -203,7 +215,8 @@ def search():
         return jsonify(results)
 
     except Exception as e:
-        print(f"❌ Erreur SQL : {e}")
+        # C'EST ICI QUE TU VERRAS L'ERREUR DANS LES LOGS RENDER
+        print(f"❌ Erreur SQL sur la recherche : {e}")
         return jsonify([])
 
 # =============================
