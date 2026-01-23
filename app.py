@@ -68,7 +68,7 @@ def download_cv():
     except: return "CV introuvable", 404
 
 # =============================
-# RECHERCHE (FILTRES SQL CORRIGÉS)
+# RECHERCHE
 # =============================
 @app.route("/search", methods=["GET"])
 def search():
@@ -79,120 +79,41 @@ def search():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # 1. Récupération des paramètres
         title = request.args.get("title", "").strip()
         year = request.args.get("year", "").strip()
         intervenant = request.args.get("intervenant", "").strip()
         production = request.args.get("production", "").strip()
-        keywords = request.args.get("keywords", "").strip()
         
-        type_metrage = request.args.get("type", "").strip()
-        genre = request.args.get("genre", "").strip()
-        budget_min = request.args.get("budget", "").strip()
-        role_filter = request.args.get("role", "").strip()
-
-        # 2. Construction de la requête
-        # On utilise "DISTINCT" pour éviter les doublons si le CSV en contient
-        query = "SELECT DISTINCT * FROM films WHERE 1=1"
+        query = "SELECT * FROM films WHERE 1=1"
         params = []
 
-        # --- A. TITRE ---
+        # 1. FILTRE TITRE INTELLIGENT
         if title:
             query += " AND (titre ILIKE %s OR similarity(titre, %s) > 0.3)"
             params.append(f"%{title}%") 
             params.append(title) 
         
-        # --- B. ANNÉE ---
-        # Correction : le nom probable est 'date_immatriculation' ou 'dateimmatriculation'
         if year:
-            # On essaie de matcher l'année n'importe où dans la date (ex: '2020' dans '12/05/2020')
-            query += " AND date_immatriculation ILIKE %s"
+            query += " AND dateimmatriculation ILIKE %s"
             params.append(f"%{year}%")
             
-        # --- C. PRODUCTION ---
         if production:
-            # Correction : noms de colonnes probables avec underscores
-            query += " AND (production ILIKE %s OR nationalite ILIKE %s OR origine ILIKE %s)"
+            query += " AND (production ILIKE %s OR nationalité ILIKE %s)"
             val = f"%{production}%"
+            params.extend([val, val])
+
+        if intervenant:
+            query += " AND (realisateurs ILIKE %s OR producteurs ILIKE %s OR scenaristes ILIKE %s)"
+            val = f"%{intervenant}%"
             params.extend([val, val, val])
 
-        # --- D. SYNOPSIS (Keywords) ---
-        if keywords:
-            # Correction : nom probable 'synopsis_tmdb' ou 'synopsis'
-            # On teste sur la colonne synopsis_tmdb (si elle existe)
-            query += " AND synopsis_tmdb ILIKE %s" 
-            params.append(f"%{keywords}%")
-
-        # --- E. TYPE DE MÉTRAGE ---
-        if type_metrage:
-            # Correction : 'Type de métrage' -> 'type_de_metrage'
-            query += " AND type_de_metrage ILIKE %s"
-            params.append(f"%{type_metrage}%")
-
-        # --- F. GENRE ---
-        if genre:
-            # 'genre' reste souvent 'genre'
-            query += " AND genre ILIKE %s"
-            params.append(f"%{genre}%")
-
-        # --- G. BUDGET ---
-        if budget_min:
-            # Le budget est du texte ("1 500 000 €"). On nettoie pour comparer.
-            # On remplace NULL par '0' pour éviter les crashs
-            query += """ 
-                AND CAST(
-                    COALESCE(
-                        NULLIF(REGEXP_REPLACE(budget, '[^0-9]', '', 'g'), ''), 
-                        '0'
-                    ) AS BIGINT
-                ) >= %s 
-            """
-            params.append(budget_min)
-
-        # --- H. INTERVENANT + ROLE ---
-        if intervenant:
-            if role_filter:
-                # Nettoyage du rôle : "Realisateur(s)" -> "realisateurs"
-                target_col = role_filter.lower().replace("(", "").replace(")", "").replace("-", "")
-                
-                # Vérification de sécurité des noms de colonnes
-                # Dans ton CSV, "Realisateur(s)" devient "realisateurs" via import_csv.py
-                possible_cols = {
-                    "realisateurs": "realisateurs",
-                    "producteurs": "producteurs",
-                    "scenaristes": "scenaristes",
-                    "acteurs": "acteurs",
-                    "diffuseurs": "diffuseurs"
-                }
-                
-                # On trouve la bonne colonne
-                found_col = None
-                for key in possible_cols:
-                    if key in target_col:
-                        found_col = possible_cols[key]
-                        break
-                
-                if found_col:
-                    query += f" AND {found_col} ILIKE %s"
-                    params.append(f"%{intervenant}%")
-                else:
-                    # Si on ne reconnait pas le rôle, on cherche partout
-                    query += " AND (realisateurs ILIKE %s OR producteurs ILIKE %s OR scenaristes ILIKE %s)"
-                    val = f"%{intervenant}%"
-                    params.extend([val, val, val])
-            else:
-                # Pas de rôle : on cherche partout
-                query += " AND (realisateurs ILIKE %s OR producteurs ILIKE %s OR scenaristes ILIKE %s OR acteurs ILIKE %s)"
-                val = f"%{intervenant}%"
-                params.extend([val, val, val, val])
-
-        # --- TRI ---
+        # 2. TRI PAR PERTINENCE
         if title:
+            # On trie par "Note de ressemblance" (Le plus ressemblant en premier)
             query += " ORDER BY similarity(titre, %s) DESC"
             params.append(title)
         else:
-            # Correction : date_immatriculation
-            query += " ORDER BY date_immatriculation DESC"
+            query += " ORDER BY dateimmatriculation DESC"
 
         query += " LIMIT 100"
 
@@ -201,26 +122,28 @@ def search():
         cur.close()
         conn.close()
 
+        # Conversion résultats
         results = []
         for row in rows:
             film = dict(row)
-            # Gestion souple des noms de colonnes PDF
-            p_path = film.get('path_plan_financement_simple') or film.get('plan_financement') or film.get('plan')
-            d_path = film.get('path_devis_simple') or film.get('devis')
-            
-            film["plan_financement"] = normalize_pdf_path(p_path)
-            film["devis"] = normalize_pdf_path(d_path)
+            plan_path = ""
+            devis_path = ""
+            for key in film.keys():
+                if 'plan' in key and film[key]: plan_path = film[key]
+                if 'devis' in key and film[key]: devis_path = film[key]
+
+            film["plan_financement"] = normalize_pdf_path(plan_path)
+            film["devis"] = normalize_pdf_path(devis_path)
             results.append(film)
 
         return jsonify(results)
 
     except Exception as e:
-        # C'EST ICI QUE TU VERRAS L'ERREUR DANS LES LOGS RENDER
-        print(f"❌ Erreur SQL sur la recherche : {e}")
+        print(f"❌ Erreur SQL : {e}")
         return jsonify([])
 
 # =============================
-# ROUTE PDF (VERSION PROD - REQUESTS)
+# ROUTE PDF (TA VERSION REQUESTS)
 # =============================
 @app.route("/get_pdf")
 def get_pdf():
@@ -234,7 +157,7 @@ def get_pdf():
         clean_path = path if path.startswith('/') else '/' + path
         target_url = f"{base}{clean_path}"
 
-    # Correction URLs API RCA
+    # --- TA CORRECTION API ---
     if "/documentActe/" in target_url and "/api/" not in target_url:
         target_url = target_url.replace("/rca.frontoffice", "")
         target_url = target_url.replace("/documentActe/", "/rca.frontoffice/api/documentActe/")
@@ -260,26 +183,6 @@ def get_pdf():
         )
     except Exception as e:
         return f"Erreur : {e}", 500
-
-# =============================
-# ROUTE DE DIAGNOSTIC
-# =============================
-@app.route("/debug_columns")
-def debug_columns():
-    if not DATABASE_URL: return jsonify({"error": "Pas de DB connectée"})
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        # On demande la structure de la table 'films'
-        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'films'")
-        rows = cur.fetchall()
-        conn.close()
-        
-        # On renvoie la liste propre
-        columns = [row[0] for row in rows]
-        return jsonify(columns)
-    except Exception as e:
-        return jsonify({"error": str(e)})
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
