@@ -7,6 +7,7 @@ import requests
 import urllib3
 import re
 
+# Désactiver les warnings SSL (Indispensable pour RCA)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -14,10 +15,16 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 DATABASE_URL = os.environ.get('DATABASE_URL')
 BASE_API = "https://rca.cnc.fr"
 
+# =============================
+# CONNEXION DB (SQL)
+# =============================
 def get_db_connection():
     if not DATABASE_URL: return None
     return psycopg2.connect(DATABASE_URL)
 
+# =============================
+# UTILS
+# =============================
 def normalize_pdf_path(path):
     if not path or str(path).lower() in ['nan', 'null', 'none', '']: return ""
     path = str(path).strip()
@@ -25,16 +32,30 @@ def normalize_pdf_path(path):
     if path and not path.startswith('/'): path = '/' + path
     return path
 
+# =============================
+# GESTION SESSION ROBUSTE (TA VERSION)
+# =============================
 _rca_session = None
 def get_rca_session():
+    """Crée une session persistante pour garder les cookies"""
     global _rca_session
     if _rca_session is None:
         _rca_session = requests.Session()
-        _rca_session.headers.update({'User-Agent': 'Mozilla/5.0', 'Referer': 'https://rca.cnc.fr/'})
-        try: _rca_session.get(BASE_API, verify=False, timeout=5)
-        except: pass
+        # On imite un vrai navigateur
+        _rca_session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://rca.cnc.fr/recherche/simple'
+        })
+        # On visite l'accueil une fois pour récupérer le cookie JSESSIONID
+        try:
+            _rca_session.get(BASE_API, verify=False, timeout=5)
+        except:
+            pass
     return _rca_session
 
+# =============================
+# ROUTES HTML
+# =============================
 @app.route("/")
 def home(): return render_template("index.html")
 @app.route("/database")
@@ -49,7 +70,7 @@ def download_cv():
     except: return "CV introuvable", 404
 
 # =============================
-# RECHERCHE INTELLIGENTE (AUTO-DÉTECTION)
+# RECHERCHE SQL (INTELLIGENTE & AUTO-DÉTECTION)
 # =============================
 @app.route("/search", methods=["GET"])
 def search():
@@ -65,16 +86,14 @@ def search():
 
         # Fonction magique : Trouve la colonne qui contient le mot clé
         def find_col(keyword):
-            # Cherche exact
             if keyword in all_db_cols: return keyword
-            # Cherche approximatif (ex: 'realisat' trouve 'realisateur(s)' ou 'realisateurs')
             for col in all_db_cols:
                 if keyword in col: return col
             return None
 
         # Identification des colonnes clés
         col_titre = find_col('titre') or 'titre'
-        col_date = find_col('immatriculation') or find_col('date') # Trouvera 'dateimmatriculation' ou 'date_immatriculation'
+        col_date = find_col('immatriculation') or find_col('date')
         col_type = find_col('typemetrage') or find_col('type') or find_col('categorie')
         col_synopsis = find_col('synopsis') or find_col('resume')
         col_prod = find_col('production')
@@ -98,7 +117,6 @@ def search():
 
         # A. TITRE
         if title and col_titre:
-            # Note: on met le nom de colonne entre guillemets doubles pour gérer les majuscules/parenthèses éventuelles
             query += f' AND ("{col_titre}" ILIKE %s OR similarity("{col_titre}", %s) > 0.3)'
             params.extend([f"%{title}%", title])
 
@@ -142,7 +160,7 @@ def search():
                 r = role_filter.lower()
                 key = ""
                 if "realisat" in r: key = "realisat"
-                elif "product" in r: key = "product" # attention à ne pas prendre 'production'
+                elif "product" in r: key = "product"
                 elif "scenar" in r: key = "scenar"
                 elif "acteu" in r: key = "acteu"
                 elif "diffus" in r: key = "diffus"
@@ -151,7 +169,6 @@ def search():
                     target_cols = [c for c in all_db_cols if key in c and "delegue" not in c]
             
             if not target_cols:
-                # Cherche partout
                 role_keys = ['realisat', 'producteur', 'scenariste', 'acteur', 'diffuseur']
                 target_cols = [c for c in all_db_cols if any(k in c for k in role_keys)]
 
@@ -180,15 +197,13 @@ def search():
         for row in rows:
             film = dict(row)
             
-            # --- MAPPING VERS LE JS ---
-            # Le JS attend des clés précises (dateimmatriculation, typemetrage...)
-            # On remplit ces clés avec les valeurs trouvées dans les vraies colonnes
+            # Mapping JS
             if col_date and col_date in film: film['dateimmatriculation'] = film[col_date]
             if col_type and col_type in film: film['typemetrage'] = film[col_type]
             if col_synopsis and col_synopsis in film: film['synopsis'] = film[col_synopsis]
             if col_budget and col_budget in film: film['budget'] = film[col_budget]
             
-            # Gestion PDF (Cherche 'plan' et 'devis' dans les colonnes)
+            # Gestion PDF
             p_col = find_col('plan_financement') or find_col('plan')
             d_col = find_col('devis_simple') or find_col('devis')
             
@@ -208,30 +223,72 @@ def search():
         print(f"❌ ERREUR SQL : {e}")
         return jsonify({"error": str(e)})
 
+# =============================
+# ROUTE PDF (LOGIQUE INJECTÉE DU SCRIPT CSV)
+# =============================
 @app.route("/get_pdf")
 def get_pdf():
+    # 1. Récupération
     path = request.args.get("path")
-    if not path: return "Erreur chemin", 400
+    if not path: return "❌ Erreur : Aucun chemin fourni", 400
+
     path = urllib.parse.unquote(path)
-    if path.startswith('http'): target_url = path
+    
+    # 2. Construction de l'URL de base
+    if path.startswith('http'):
+        target_url = path
     else:
         base = BASE_API.rstrip('/')
         clean_path = path if path.startswith('/') else '/' + path
         target_url = f"{base}{clean_path}"
+
+    # ========================================================
+    # 3. Transformation vers la nouvelle API (Ta logique)
+    # ========================================================
+    # Si le lien contient l'ancien format, on insère "/api"
     if "/documentActe/" in target_url and "/api/" not in target_url:
-        target_url = target_url.replace("/rca.frontoffice", "/rca.frontoffice/api")
+        print("🔧 Conversion vers API...")
+        target_url = target_url.replace("/rca.frontoffice", "")
+        target_url = target_url.replace("/documentActe/", "/rca.frontoffice/api/documentActe/")
+    
+    # Si par hasard le lien était déjà "propre" mais sans le préfixe
     if "api" not in target_url and "rca.frontoffice" in target_url:
          target_url = target_url.replace("/rca.frontoffice/", "/rca.frontoffice/api/")
+
+    print(f"🔗 TENTATIVE REQUESTS SUR : {target_url}")
+
     try:
         session = get_rca_session()
+        
+        # On télécharge (stream=True permet de ne pas charger tout le fichier en mémoire d'un coup)
         response = session.get(target_url, stream=True, verify=False, timeout=30)
+        
+        # Vérification simple
+        content_type = response.headers.get('Content-Type', '').lower()
+        print(f"📊 Statut : {response.status_code} | Type : {content_type}")
+
+        if response.status_code != 200:
+            return f"Erreur de téléchargement RCA (Code {response.status_code})", 404
+
+        # Extraction du nom de fichier
         filename = "document.pdf"
-        if "idDocument=" in target_url:
+        if "Content-Disposition" in response.headers:
+            cd = response.headers["Content-Disposition"]
+            if "filename=" in cd:
+                filename = cd.split("filename=")[1].strip('"')
+        elif "idDocument=" in target_url:
             match = re.search(r'idDocument=([a-f0-9\-]+)', target_url)
             if match: filename = f"RCA_{match.group(1)[:8]}.pdf"
-        return Response(response.iter_content(chunk_size=8192), content_type='application/pdf', headers={'Content-Disposition': f'inline; filename="{filename}"'})
+
+        # On renvoie le flux directement au navigateur
+        return Response(
+            response.iter_content(chunk_size=8192),
+            content_type='application/pdf',
+            headers={'Content-Disposition': f'inline; filename="{filename}"'}
+        )
+
     except Exception as e:
-        return f"Erreur : {e}", 500
+        return f"Erreur interne : {str(e)}", 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
