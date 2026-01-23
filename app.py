@@ -7,7 +7,7 @@ import requests
 import urllib3
 import re
 
-# Désactiver les warnings SSL (Indispensable pour RCA)
+# Désactiver les warnings SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -33,7 +33,7 @@ def normalize_pdf_path(path):
     return path
 
 # =============================
-# GESTION SESSION (TA VERSION)
+# GESTION SESSION (REQUESTS)
 # =============================
 _rca_session = None
 def get_rca_session():
@@ -65,7 +65,7 @@ def download_cv():
     except: return "CV introuvable", 404
 
 # =============================
-# RECHERCHE INTELLIGENTE (CELLE QUI MARCHE AVEC TES COLONNES)
+# RECHERCHE (Version "Sherlock Holmes" qui ne plante pas)
 # =============================
 @app.route("/search", methods=["GET"])
 def search():
@@ -159,7 +159,6 @@ def search():
                 elif "scenar" in r: key = "scenar"
                 elif "acteu" in r: key = "acteu"
                 elif "diffus" in r: key = "diffus"
-                
                 if key:
                     target_cols = [c for c in all_db_cols if key in c and "delegue" not in c]
             
@@ -205,7 +204,7 @@ def search():
             film["plan_financement"] = normalize_pdf_path(film.get(p_col)) if p_col else ""
             film["devis"] = normalize_pdf_path(film.get(d_col)) if d_col else ""
 
-            # Déduplication Python
+            # Déduplication
             unique_id = (film.get(col_titre, '').lower(), film.get(col_date, ''))
             if unique_id in seen: continue
             seen.add(unique_id)
@@ -219,7 +218,7 @@ def search():
         return jsonify({"error": str(e)})
 
 # =============================
-# ROUTE PDF (TA VERSION QUI MARCHE)
+# ROUTE PDF (TA VERSION EXACTE QUI MARCHE)
 # =============================
 @app.route("/get_pdf")
 def get_pdf():
@@ -233,7 +232,7 @@ def get_pdf():
         clean_path = path if path.startswith('/') else '/' + path
         target_url = f"{base}{clean_path}"
 
-    # --- TA LOGIQUE DE CORRECTION API ---
+    # --- TA CORRECTION API EXACTE ---
     if "/documentActe/" in target_url and "/api/" not in target_url:
         target_url = target_url.replace("/rca.frontoffice", "")
         target_url = target_url.replace("/documentActe/", "/rca.frontoffice/api/documentActe/")
