@@ -218,7 +218,7 @@ def search():
         return jsonify({"error": str(e)})
 
 # =============================
-# ROUTE PDF (TA VERSION EXACTE QUI MARCHE)
+# ROUTE PDF (TA VERSION REQUESTS)
 # =============================
 @app.route("/get_pdf")
 def get_pdf():
@@ -232,7 +232,7 @@ def get_pdf():
         clean_path = path if path.startswith('/') else '/' + path
         target_url = f"{base}{clean_path}"
 
-    # --- TA CORRECTION API EXACTE ---
+    # --- TA CORRECTION API ---
     if "/documentActe/" in target_url and "/api/" not in target_url:
         target_url = target_url.replace("/rca.frontoffice", "")
         target_url = target_url.replace("/documentActe/", "/rca.frontoffice/api/documentActe/")
