@@ -16,7 +16,7 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 BASE_API = "https://rca.cnc.fr"
 
 # =============================
-# CONNEXION DB (SQL)
+# CONNEXION DB
 # =============================
 def get_db_connection():
     if not DATABASE_URL: return None
@@ -33,24 +33,19 @@ def normalize_pdf_path(path):
     return path
 
 # =============================
-# GESTION SESSION ROBUSTE (TA VERSION)
+# GESTION SESSION (TA VERSION)
 # =============================
 _rca_session = None
 def get_rca_session():
-    """Crée une session persistante pour garder les cookies"""
     global _rca_session
     if _rca_session is None:
         _rca_session = requests.Session()
-        # On imite un vrai navigateur
         _rca_session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Referer': 'https://rca.cnc.fr/recherche/simple'
         })
-        # On visite l'accueil une fois pour récupérer le cookie JSESSIONID
-        try:
-            _rca_session.get(BASE_API, verify=False, timeout=5)
-        except:
-            pass
+        try: _rca_session.get(BASE_API, verify=False, timeout=5)
+        except: pass
     return _rca_session
 
 # =============================
@@ -70,7 +65,7 @@ def download_cv():
     except: return "CV introuvable", 404
 
 # =============================
-# RECHERCHE SQL (INTELLIGENTE & AUTO-DÉTECTION)
+# RECHERCHE INTELLIGENTE (CELLE QUI MARCHE AVEC TES COLONNES)
 # =============================
 @app.route("/search", methods=["GET"])
 def search():
@@ -191,7 +186,7 @@ def search():
         cur.close()
         conn.close()
 
-        # Nettoyage et Normalisation pour le JS
+        # Nettoyage et Normalisation
         seen = set()
         results = []
         for row in rows:
@@ -210,7 +205,7 @@ def search():
             film["plan_financement"] = normalize_pdf_path(film.get(p_col)) if p_col else ""
             film["devis"] = normalize_pdf_path(film.get(d_col)) if d_col else ""
 
-            # Déduplication
+            # Déduplication Python
             unique_id = (film.get(col_titre, '').lower(), film.get(col_date, ''))
             if unique_id in seen: continue
             seen.add(unique_id)
@@ -224,71 +219,46 @@ def search():
         return jsonify({"error": str(e)})
 
 # =============================
-# ROUTE PDF (LOGIQUE INJECTÉE DU SCRIPT CSV)
+# ROUTE PDF (TA VERSION QUI MARCHE)
 # =============================
 @app.route("/get_pdf")
 def get_pdf():
-    # 1. Récupération
     path = request.args.get("path")
-    if not path: return "❌ Erreur : Aucun chemin fourni", 400
-
+    if not path: return "Erreur chemin", 400
     path = urllib.parse.unquote(path)
     
-    # 2. Construction de l'URL de base
-    if path.startswith('http'):
-        target_url = path
+    if path.startswith('http'): target_url = path
     else:
         base = BASE_API.rstrip('/')
         clean_path = path if path.startswith('/') else '/' + path
         target_url = f"{base}{clean_path}"
 
-    # ========================================================
-    # 3. Transformation vers la nouvelle API (Ta logique)
-    # ========================================================
-    # Si le lien contient l'ancien format, on insère "/api"
+    # --- TA LOGIQUE DE CORRECTION API ---
     if "/documentActe/" in target_url and "/api/" not in target_url:
-        print("🔧 Conversion vers API...")
         target_url = target_url.replace("/rca.frontoffice", "")
         target_url = target_url.replace("/documentActe/", "/rca.frontoffice/api/documentActe/")
     
-    # Si par hasard le lien était déjà "propre" mais sans le préfixe
     if "api" not in target_url and "rca.frontoffice" in target_url:
          target_url = target_url.replace("/rca.frontoffice/", "/rca.frontoffice/api/")
 
-    print(f"🔗 TENTATIVE REQUESTS SUR : {target_url}")
+    print(f"🔗 Download : {target_url}")
 
     try:
         session = get_rca_session()
-        
-        # On télécharge (stream=True permet de ne pas charger tout le fichier en mémoire d'un coup)
         response = session.get(target_url, stream=True, verify=False, timeout=30)
         
-        # Vérification simple
-        content_type = response.headers.get('Content-Type', '').lower()
-        print(f"📊 Statut : {response.status_code} | Type : {content_type}")
-
-        if response.status_code != 200:
-            return f"Erreur de téléchargement RCA (Code {response.status_code})", 404
-
-        # Extraction du nom de fichier
         filename = "document.pdf"
-        if "Content-Disposition" in response.headers:
-            cd = response.headers["Content-Disposition"]
-            if "filename=" in cd:
-                filename = cd.split("filename=")[1].strip('"')
-        elif "idDocument=" in target_url:
+        if "idDocument=" in target_url:
             match = re.search(r'idDocument=([a-f0-9\-]+)', target_url)
             if match: filename = f"RCA_{match.group(1)[:8]}.pdf"
 
-        # On renvoie le flux directement au navigateur
         return Response(
             response.iter_content(chunk_size=8192),
             content_type='application/pdf',
             headers={'Content-Disposition': f'inline; filename="{filename}"'}
         )
-
     except Exception as e:
-        return f"Erreur interne : {str(e)}", 500
+        return f"Erreur : {e}", 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
