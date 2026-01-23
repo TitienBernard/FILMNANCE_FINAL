@@ -7,7 +7,6 @@ import requests
 import urllib3
 import re
 
-# Désactiver les warnings SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -50,7 +49,7 @@ def download_cv():
     except: return "CV introuvable", 404
 
 # =============================
-# RECHERCHE ULTIME (HYBRIDE)
+# RECHERCHE INTELLIGENTE (AUTO-DÉTECTION)
 # =============================
 @app.route("/search", methods=["GET"])
 def search():
@@ -60,13 +59,29 @@ def search():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # 1. INTELLIGENCE : On regarde quelles colonnes existent vraiment
+        # 1. On récupère TOUTES les colonnes réelles de la base
         cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'films'")
-        existing_columns = [row['column_name'] for row in cur.fetchall()]
-        
-        def col_exists(name): return name in existing_columns
+        all_db_cols = [row['column_name'].lower() for row in cur.fetchall()]
 
-        # Params
+        # Fonction magique : Trouve la colonne qui contient le mot clé
+        def find_col(keyword):
+            # Cherche exact
+            if keyword in all_db_cols: return keyword
+            # Cherche approximatif (ex: 'realisat' trouve 'realisateur(s)' ou 'realisateurs')
+            for col in all_db_cols:
+                if keyword in col: return col
+            return None
+
+        # Identification des colonnes clés
+        col_titre = find_col('titre') or 'titre'
+        col_date = find_col('immatriculation') or find_col('date') # Trouvera 'dateimmatriculation' ou 'date_immatriculation'
+        col_type = find_col('typemetrage') or find_col('type') or find_col('categorie')
+        col_synopsis = find_col('synopsis') or find_col('resume')
+        col_prod = find_col('production')
+        col_genre = find_col('genre')
+        col_budget = find_col('budget') or find_col('devis')
+
+        # Params User
         title = request.args.get("title", "").strip()
         year = request.args.get("year", "").strip()
         intervenant = request.args.get("intervenant", "").strip()
@@ -77,104 +92,80 @@ def search():
         budget_min = request.args.get("budget", "").strip()
         role_filter = request.args.get("role", "").strip()
 
-        # 2. REQUÊTE (Sans DISTINCT pour éviter le crash ORDER BY)
+        # Construction Requête
         query = "SELECT * FROM films WHERE 1=1"
         params = []
 
         # A. TITRE
-        if title:
-            # On vérifie si la colonne titre existe (normalement oui)
-            t_col = 'titre' if col_exists('titre') else ('nom' if col_exists('nom') else None)
-            if t_col:
-                query += f" AND ({t_col} ILIKE %s OR similarity({t_col}, %s) > 0.3)"
-                params.extend([f"%{title}%", title])
+        if title and col_titre:
+            # Note: on met le nom de colonne entre guillemets doubles pour gérer les majuscules/parenthèses éventuelles
+            query += f' AND ("{col_titre}" ILIKE %s OR similarity("{col_titre}", %s) > 0.3)'
+            params.extend([f"%{title}%", title])
 
-        # B. ANNÉE (Cherche 'dateimmatriculation', 'date_immatriculation', etc.)
-        if year:
-            possible_cols = ['dateimmatriculation', 'date_immatriculation', 'annee', 'date']
-            valid = [c for c in possible_cols if col_exists(c)]
-            if valid:
-                or_clause = " OR ".join([f"{c} ILIKE %s" for c in valid])
-                query += f" AND ({or_clause})"
-                params.extend([f"%{year}%"] * len(valid))
+        # B. ANNÉE
+        if year and col_date:
+            query += f' AND "{col_date}" ILIKE %s'
+            params.append(f"%{year}%")
 
-        # C. PRODUCTION
-        if production:
-            possible_cols = ['production', 'producteur_delegue', 'nationalite', 'origine']
-            valid = [c for c in possible_cols if col_exists(c)]
-            if valid:
-                or_clause = " OR ".join([f"{c} ILIKE %s" for c in valid])
-                query += f" AND ({or_clause})"
-                params.extend([f"%{production}%"] * len(valid))
+        # C. TYPE DE MÉTRAGE
+        if type_metrage and col_type:
+            query += f' AND "{col_type}" ILIKE %s'
+            params.append(f"%{type_metrage}%")
 
-        # D. SYNOPSIS
-        if keywords:
-            possible_cols = ['synopsis_tmdb', 'synopsis', 'resume']
-            valid = [c for c in possible_cols if col_exists(c)]
-            if valid:
-                or_clause = " OR ".join([f"{c} ILIKE %s" for c in valid])
-                query += f" AND ({or_clause})"
-                params.extend([f"%{keywords}%"] * len(valid))
-
-        # E. TYPE DE MÉTRAGE
-        if type_metrage:
-            possible_cols = ['typemetrage', 'type_de_metrage', 'categorie', 'type']
-            valid = [c for c in possible_cols if col_exists(c)]
-            if valid:
-                or_clause = " OR ".join([f"{c} ILIKE %s" for c in valid])
-                query += f" AND ({or_clause})"
-                params.extend([f"%{type_metrage}%"] * len(valid))
-
-        # F. GENRE
-        if genre and col_exists('genre'):
-            query += " AND genre ILIKE %s"
+        # D. GENRE
+        if genre and col_genre:
+            query += f' AND "{col_genre}" ILIKE %s'
             params.append(f"%{genre}%")
 
-        # G. BUDGET (Le plus important : détecte 'budget' OU 'devis')
-        if budget_min:
-            b_col = None
-            if col_exists('budget'): b_col = 'budget'
-            elif col_exists('devis'): b_col = 'devis'
-            elif col_exists('devis_global'): b_col = 'devis_global'
-            
-            if b_col:
-                query += f" AND CAST(NULLIF(REGEXP_REPLACE({b_col}, '[^0-9]', '', 'g'), '') AS BIGINT) >= %s"
-                params.append(budget_min)
+        # E. PRODUCTION
+        if production:
+            prod_cols = [c for c in all_db_cols if any(k in c for k in ['production', 'nationalite', 'origine'])]
+            if prod_cols:
+                or_clause = " OR ".join([f'"{c}" ILIKE %s' for c in prod_cols])
+                query += f" AND ({or_clause})"
+                params.extend([f"%{production}%"] * len(prod_cols))
+
+        # F. SYNOPSIS
+        if keywords and col_synopsis:
+            query += f' AND "{col_synopsis}" ILIKE %s'
+            params.append(f"%{keywords}%")
+
+        # G. BUDGET
+        if budget_min and col_budget:
+            query += f""" AND CAST(NULLIF(REGEXP_REPLACE("{col_budget}", '[^0-9]', '', 'g'), '') AS BIGINT) >= %s """
+            params.append(budget_min)
 
         # H. INTERVENANT
         if intervenant:
             target_cols = []
             if role_filter:
                 r = role_filter.lower()
-                keyword = ""
-                if "realisat" in r: keyword = "realisat"
-                elif "product" in r: keyword = "product" # Attrape producteur et production
-                elif "scenar" in r: keyword = "scenariste"
-                elif "acteu" in r: keyword = "acteur"
-                elif "diffus" in r: keyword = "diffuseur"
+                key = ""
+                if "realisat" in r: key = "realisat"
+                elif "product" in r: key = "product" # attention à ne pas prendre 'production'
+                elif "scenar" in r: key = "scenar"
+                elif "acteu" in r: key = "acteu"
+                elif "diffus" in r: key = "diffus"
                 
-                # Cherche les colonnes correspondantes
-                target_cols = [c for c in existing_columns if keyword in c]
+                if key:
+                    target_cols = [c for c in all_db_cols if key in c and "delegue" not in c]
             
             if not target_cols:
                 # Cherche partout
-                keywords_roles = ['realisat', 'producteur', 'scenariste', 'acteur', 'diffuseur']
-                target_cols = [c for c in existing_columns if any(k in c for k in keywords_roles)]
+                role_keys = ['realisat', 'producteur', 'scenariste', 'acteur', 'diffuseur']
+                target_cols = [c for c in all_db_cols if any(k in c for k in role_keys)]
 
             if target_cols:
-                or_clause = " OR ".join([f"{c} ILIKE %s" for c in target_cols])
+                or_clause = " OR ".join([f'"{c}" ILIKE %s' for c in target_cols])
                 query += f" AND ({or_clause})"
                 params.extend([f"%{intervenant}%"] * len(target_cols))
 
         # TRI
-        if title and col_exists('titre'):
-            query += " ORDER BY similarity(titre, %s) DESC"
+        if title and col_titre:
+            query += f' ORDER BY similarity("{col_titre}", %s) DESC'
             params.append(title)
-        else:
-            # Tri par date si possible
-            d_col = 'dateimmatriculation' if col_exists('dateimmatriculation') else ('date_immatriculation' if col_exists('date_immatriculation') else None)
-            if d_col:
-                query += f" ORDER BY {d_col} DESC"
+        elif col_date:
+            query += f' ORDER BY "{col_date}" DESC'
 
         query += " LIMIT 100"
 
@@ -183,26 +174,31 @@ def search():
         cur.close()
         conn.close()
 
-        # 3. DÉDUPLICATION EN PYTHON
+        # Nettoyage et Normalisation pour le JS
         seen = set()
         results = []
         for row in rows:
             film = dict(row)
             
-            # Normalisation pour le JS (si la base a des noms bizarres)
-            if 'type_de_metrage' in film: film['typemetrage'] = film['type_de_metrage']
-            if 'date_immatriculation' in film: film['dateimmatriculation'] = film['date_immatriculation']
+            # --- MAPPING VERS LE JS ---
+            # Le JS attend des clés précises (dateimmatriculation, typemetrage...)
+            # On remplit ces clés avec les valeurs trouvées dans les vraies colonnes
+            if col_date and col_date in film: film['dateimmatriculation'] = film[col_date]
+            if col_type and col_type in film: film['typemetrage'] = film[col_type]
+            if col_synopsis and col_synopsis in film: film['synopsis'] = film[col_synopsis]
+            if col_budget and col_budget in film: film['budget'] = film[col_budget]
             
-            # Clé unique pour dédoublonner
-            key = (film.get('titre', '').lower(), film.get('dateimmatriculation', ''))
-            if key in seen: continue
-            seen.add(key)
+            # Gestion PDF (Cherche 'plan' et 'devis' dans les colonnes)
+            p_col = find_col('plan_financement') or find_col('plan')
+            d_col = find_col('devis_simple') or find_col('devis')
+            
+            film["plan_financement"] = normalize_pdf_path(film.get(p_col)) if p_col else ""
+            film["devis"] = normalize_pdf_path(film.get(d_col)) if d_col else ""
 
-            # PDF
-            p_path = film.get('path_plan_financement_simple') or film.get('plan_financement') or film.get('plan')
-            d_path = film.get('path_devis_simple') or film.get('devis')
-            film["plan_financement"] = normalize_pdf_path(p_path)
-            film["devis"] = normalize_pdf_path(d_path)
+            # Déduplication
+            unique_id = (film.get(col_titre, '').lower(), film.get(col_date, ''))
+            if unique_id in seen: continue
+            seen.add(unique_id)
             
             results.append(film)
 
@@ -217,18 +213,15 @@ def get_pdf():
     path = request.args.get("path")
     if not path: return "Erreur chemin", 400
     path = urllib.parse.unquote(path)
-    
     if path.startswith('http'): target_url = path
     else:
         base = BASE_API.rstrip('/')
         clean_path = path if path.startswith('/') else '/' + path
         target_url = f"{base}{clean_path}"
-
     if "/documentActe/" in target_url and "/api/" not in target_url:
         target_url = target_url.replace("/rca.frontoffice", "/rca.frontoffice/api")
     if "api" not in target_url and "rca.frontoffice" in target_url:
          target_url = target_url.replace("/rca.frontoffice/", "/rca.frontoffice/api/")
-
     try:
         session = get_rca_session()
         response = session.get(target_url, stream=True, verify=False, timeout=30)
@@ -239,22 +232,6 @@ def get_pdf():
         return Response(response.iter_content(chunk_size=8192), content_type='application/pdf', headers={'Content-Disposition': f'inline; filename="{filename}"'})
     except Exception as e:
         return f"Erreur : {e}", 500
-
-# --- ROUTE ESPION POUR VOIR LES NOMS EXACTS ---
-@app.route("/debug_columns")
-def debug_columns():
-    if not DATABASE_URL: return jsonify(["Erreur: Pas de DB"])
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        # On demande à PostgreSQL la liste officielle des colonnes
-        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'films'")
-        rows = cur.fetchall()
-        conn.close()
-        # On renvoie la liste
-        return jsonify([r[0] for r in rows])
-    except Exception as e:
-        return jsonify([str(e)])
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
