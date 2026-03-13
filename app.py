@@ -95,7 +95,7 @@ def search():
         col_synopsis = find_col('synopsis') or find_col('resume')
         col_prod = find_col('production')
         col_genre = find_col('genre')
-        col_budget = find_col('budget') or find_col('devis')
+        col_budget = find_col('budget')
         
         # Pour les PDF : on force les noms si détectés ou on devine
         col_pdf_plan = 'path_plan_financement_simple' if 'path_plan_financement_simple' in all_db_cols else (find_col('plan_financement') or find_col('plan'))
