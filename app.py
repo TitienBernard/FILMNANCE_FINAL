@@ -143,20 +143,23 @@ def search():
         if keywords and col_synopsis:
             query += f' AND "{col_synopsis}" ILIKE %s'
             params.append(f"%{keywords}%")
-        # G. BUDGET
+        # G. BUDGET 
         if budget_min and col_budget:
+            # On nettoie la saisie utilisateur (au cas où il y aurait des espaces)
+            clean_input = budget_min.replace(" ", "").replace("€", "")
+            
             query += f""" 
                 AND CAST(
                     NULLIF(
                         REGEXP_REPLACE(
-                            SPLIT_PART("{col_budget}", ',', 1), -- On coupe à la virgule d'abord
+                            SPLIT_PART(SPLIT_PART("{col_budget}", ',', 1), '.', 1), 
                             '[^0-9]', '', 'g'
                         ), 
                         ''
                     ) AS BIGINT
                 ) >= %s 
             """
-            params.append(budget_min)
+            params.append(clean_input)
         # H. INTERVENANT
         if intervenant:
             target_cols = []
