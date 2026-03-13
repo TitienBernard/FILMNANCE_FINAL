@@ -143,22 +143,20 @@ def search():
         if keywords and col_synopsis:
             query += f' AND "{col_synopsis}" ILIKE %s'
             params.append(f"%{keywords}%")
-        # G. BUDGET 
+        # G. BUDGET (Test alignement d'unité)
         if budget_min and col_budget:
-            clean_input = budget_min.replace(" ", "").replace("€", "")
-            
-            query += f""" 
-                AND CAST(
-                    NULLIF(
-                        REGEXP_REPLACE(
-                            SPLIT_PART(SPLIT_PART("{col_budget}", ',', 1), '.', 1), 
-                            '[^0-9]', '', 'g'
-                        ), 
-                        ''
-                    ) AS BIGINT
-                ) >= %s 
-            """
-            params.append(clean_input)
+            clean_input = "".join(filter(str.isdigit, budget_min))
+    
+            if clean_input:
+                query += f""" 
+                    AND (
+                        CAST(
+                            NULLIF(REGEXP_REPLACE("{col_budget}", '[^0-9]', '', 'g'), '') 
+                            AS BIGINT
+                        ) * 1000 -- On multiplie par 1000 pour passer de k€ à €
+                    ) >= %s 
+                """
+                params.append(int(clean_input))
         # H. INTERVENANT
         if intervenant:
             target_cols = []
