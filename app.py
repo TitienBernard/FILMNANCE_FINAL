@@ -145,7 +145,6 @@ def search():
             params.append(f"%{keywords}%")
         # G. BUDGET 
         if budget_min and col_budget:
-            # On nettoie la saisie utilisateur (au cas où il y aurait des espaces)
             clean_input = budget_min.replace(" ", "").replace("€", "")
             
             query += f""" 
