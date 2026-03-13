@@ -145,17 +145,7 @@ def search():
             params.append(f"%{keywords}%")
         # G. BUDGET
         if budget_min and col_budget:
-            query += f""" 
-                AND CAST(
-                    NULLIF(
-                        REGEXP_REPLACE(
-                            SPLIT_PART(SPLIT_PART("{col_budget}", ',', 1), '.', 1), 
-                            '[^0-9]', '', 'g'
-                        ), 
-                        ''
-                    ) AS BIGINT
-                ) >= %s 
-            """
+            query += f""" AND CAST(NULLIF(REGEXP_REPLACE("{col_budget}", '[^0-9]', '', 'g'), '') AS BIGINT) >= %s """
             params.append(budget_min)
         # H. INTERVENANT
         if intervenant:
